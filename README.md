@@ -18,3 +18,4 @@ A simple GST invoice generator for small shops and service providers.
 - CGST and SGST are split equally, which applies to sales within the same state.
 - For interstate sales, IGST applies instead. This is not yet supported.
 - Check invoice formats with a tax professional before using them for real customers.
+view_history.py
