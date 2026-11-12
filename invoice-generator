@@ -1,4 +1,95 @@
-from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
+from datetime import date
+
+from invoice import Invoice, LineItem, save_invoice
+from history import invoice_exists, record_invoice
+
+
+def ask(prompt, required=True):
+    while True:
+        value = input(prompt).strip()
+        if value or not required:
+            return value
+        print("  This field is required.")
+
+
+def ask_decimal(prompt, minimum=Decimal("0")):
+    while True:
+        raw = input(prompt).strip()
+        try:
+            value = Decimal(raw)
+            if value < minimum:
+                print(f"  Please enter a number of at least {minimum}.")
+                continue
+            return value
+        except InvalidOperation:
+            print("  Please enter a valid number.")
+
+
+def ask_gst_rate():
+    allowed = [Decimal(r) for r in ("0", "5", "12", "18", "28")]
+    while True:
+        value = ask_decimal("GST rate (0, 5, 12, 18 or 28): ")
+        if value in allowed:
+            return value
+        print("  GST rates are usually 0, 5, 12, 18 or 28.")
+
+
+def ask_invoice_number():
+    while True:
+        number = ask("Invoice number (for example 2026-001): ")
+        if invoice_exists(number):
+            print("  That invoice number is already used. Please choose another.")
+            continue
+        return number
+
+
+def collect_items():
+    items = []
+    print("\nEnter items. Leave the description empty when you're done.")
+    while True:
+        description = ask("Item description (or press Enter to finish): ", required=False)
+        if not description:
+            if items:
+                break
+            print("  Add at least one item.")
+            continue
+        quantity = ask_decimal("Quantity: ", minimum=Decimal("0.01"))
+        unit_price = ask_decimal("Price per unit (INR): ")
+        gst_rate = ask_gst_rate()
+        items.append(LineItem(description, quantity, unit_price, gst_rate))
+        print(f"  Added: {description}")
+    return items
+
+
+def main():
+    print("=== Create a GST Invoice ===\n")
+    seller_name = ask("Your business name: ")
+    seller_gstin = ask("Your GSTIN (or press Enter if not registered): ", required=False)
+    buyer_name = ask("Customer name: ")
+    buyer_phone = ask("Customer phone: ")
+    invoice_number = ask_invoice_number()
+    items = collect_items()
+
+    invoice = Invoice(
+        invoice_number=invoice_number,
+        seller_name=seller_name,
+        seller_gstin=seller_gstin or "Not registered",
+        buyer_name=buyer_name,
+        buyer_phone=buyer_phone,
+        items=items,
+        invoice_date=date.today(),
+    )
+
+    print("\n" + invoice.render())
+    path = save_invoice(invoice)
+    record_invoice(invoice)
+    print(f"\nInvoice saved to: {path}")
+    print("Invoice recorded in invoices.json")
+
+
+if __name__ == "__main__":
+    main()from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
