@@ -1,0 +1,40 @@
+import json
+from datetime import date
+from decimal import Decimal
+from pathlib import Path
+
+HISTORY_FILE = Path("invoices.json")
+
+
+def _load():
+    if not HISTORY_FILE.exists():
+        return []
+    return json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+
+
+def invoice_exists(invoice_number: str) -> bool:
+    return any(r["invoice_number"] == invoice_number for r in _load())
+
+
+def record_invoice(invoice) -> None:
+    if invoice_exists(invoice.invoice_number):
+        raise ValueError(f"Invoice number {invoice.invoice_number} already exists.")
+    records = _load()
+    records.append({
+        "invoice_number": invoice.invoice_number,
+        "date": invoice.invoice_date.isoformat(),
+        "buyer_name": invoice.buyer_name,
+        "buyer_phone": invoice.buyer_phone,
+        "grand_total": str(invoice.grand_total()),
+    })
+    HISTORY_FILE.write_text(
+        json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def list_invoices() -> list:
+    return _load()
+
+
+def total_sales() -> Decimal:
+    return sum((Decimal(r["grand_total"]) for r in _load()), Decimal("0.00"))
